@@ -88,6 +88,7 @@ from airflow.models import Deadline, Log
 from airflow.models.backfill import Backfill
 from airflow.models.base import Base, StringID
 from airflow.models.deadline_alert import DeadlineAlert as DeadlineAlertModel
+from airflow.models.dynamic_region import SENTINEL_REGION_ID
 from airflow.models.taskinstance import TaskInstance as TI, _add_and_prime_mapped_ti, clear_task_instances
 from airflow.models.tasklog import LogTemplate
 from airflow.serialization.definitions.deadline import SerializedReferenceModels
@@ -2182,6 +2183,7 @@ class DagRun(Base, LoggingMixin):
                 TI.dag_id == self.dag_id,
                 TI.task_id == task.task_id,
                 TI.run_id == self.run_id,
+                TI.region_id == SENTINEL_REGION_ID,
             )
         )
         existing_indexes = set(query)
@@ -2194,6 +2196,7 @@ class DagRun(Base, LoggingMixin):
                     TI.dag_id == self.dag_id,
                     TI.task_id == task.task_id,
                     TI.run_id == self.run_id,
+                    TI.region_id == SENTINEL_REGION_ID,
                     TI.map_index.in_(removed_indexes),
                 )
                 .values(state=TaskInstanceState.REMOVED)
@@ -2208,6 +2211,7 @@ class DagRun(Base, LoggingMixin):
             task_id=task.task_id,
             run_id=self.run_id,
             map_indexes=missing_indexes,
+            region_id=SENTINEL_REGION_ID,
             session=session,
         )
 

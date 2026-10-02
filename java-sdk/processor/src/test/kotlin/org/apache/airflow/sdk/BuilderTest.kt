@@ -824,7 +824,7 @@ class BuilderTest {
          import org.apache.airflow.sdk.internal.Refs;
          public final class TestExampleBuilder {
            public static DagDef build() {
-             var dag = new DagDef("foo");
+             var dag = DagSource.declaredBy(new DagDef("foo"), TestExample.class);
              return Refs.record(dag, List.of(), new TestExample.Wiring()::depends);
            }
          }
@@ -861,7 +861,7 @@ class BuilderTest {
          import org.apache.airflow.sdk.internal.Refs;
          public final class Foo {
            public static DagDef build() {
-             var dag = new DagDef("TestExample");
+             var dag = DagSource.declaredBy(new DagDef("TestExample"), TestExample.class);
              return Refs.record(dag, List.of(), new TestExample.Wiring()::depends);
            }
          }
@@ -1833,7 +1833,7 @@ class BuilderTest {
 
          public final class TestExampleBuilder {
            public static DagDef build() {
-             var dag = new DagDef("TestExample");
+             var dag = DagSource.declaredBy(new DagDef("TestExample"), TestExample.class);
              return Refs.record(dag, List.of("score"), new TestExample.Wiring()::depends);
            }
 

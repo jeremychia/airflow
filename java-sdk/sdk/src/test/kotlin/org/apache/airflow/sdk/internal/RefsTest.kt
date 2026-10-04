@@ -23,6 +23,7 @@ import org.apache.airflow.sdk.Arg
 import org.apache.airflow.sdk.Client
 import org.apache.airflow.sdk.Context
 import org.apache.airflow.sdk.DagDef
+import org.apache.airflow.sdk.Group
 import org.apache.airflow.sdk.LiteralArg
 import org.apache.airflow.sdk.Task
 import org.apache.airflow.sdk.TaskDef
@@ -32,6 +33,12 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+
+/** Stands in for the generated wiring view of a task group. */
+private fun groupView(id: String) =
+  object : Group {
+    override fun groupId() = id
+  }
 
 private class NoopRefTask : Task {
   override fun execute(
@@ -154,5 +161,47 @@ internal class RefsTest {
       }
 
     assertEquals("Dag wiring is already being recorded on this thread", error.message)
+  }
+
+  @Test
+  @DisplayName("Should make every group before the wiring runs and register each task in its own")
+  fun shouldRegisterGroupedTaskInGroup() {
+    val dag = DagDef("d")
+    Refs.record(
+      dag,
+      listOf("extract", "staging.checks.nulls"),
+      listOf("staging", "staging.checks", "staging.empty"),
+      mapOf("staging.checks.nulls" to "staging.checks"),
+    ) {
+      val extract = Refs.node<Unit>(TaskDef("extract", NoopRefTask::class.java))
+      extract.before(groupView("staging"))
+      Refs.node<Unit>(TaskDef("staging.checks.nulls", NoopRefTask::class.java))
+    }
+
+    // staging.empty holds no task, so only the group list can have made it.
+    assertEquals(listOf("staging", "staging.checks", "staging.empty"), dag.groups.keys.toList())
+    assertEquals(listOf("staging.checks.nulls"), dag.groups.getValue("staging.checks").taskIds)
+    assertEquals(1, dag.groupEdges.size)
+  }
+
+  @Test
+  @DisplayName("Should resolve the group a wiring-view group stands for")
+  fun shouldResolveGroupOfView() {
+    val dag = DagDef("d")
+    Refs.record(dag, listOf("staging.stage"), listOf("staging"), mapOf("staging.stage" to "staging")) {
+      Refs.node<Unit>(TaskDef("staging.stage", NoopRefTask::class.java))
+      assertEquals(listOf("staging.stage"), groupView("staging").nodes().map { it.id })
+    }
+  }
+
+  @Test
+  @DisplayName("Should fail naming a group the Dag does not have")
+  fun shouldFailOnUnknownGroup() {
+    val error =
+      assertThrows(IllegalArgumentException::class.java) {
+        Refs.record(DagDef("d"), emptyList()) { Refs.group("staging") }
+      }
+
+    assertEquals("Dag 'd' has no task group 'staging'", error.message)
   }
 }

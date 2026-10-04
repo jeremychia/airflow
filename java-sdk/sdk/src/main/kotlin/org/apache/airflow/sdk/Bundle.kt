@@ -72,6 +72,7 @@ class Bundle(
    */
   fun register(dag: DagDef): Bundle {
     checkOpen()
+    dag.expandGroupEdges()
     require(dag.id !in taskHandlers) {
       "Dag '${dag.id}' already has registered task handlers; a Dag declared in Java owns its " +
         "own tasks, so one Dag ID cannot have both"

@@ -19,6 +19,8 @@
 
 package org.apache.airflow.sdk
 
+import org.apache.airflow.sdk.internal.Refs
+
 /**
  * Vocabulary for declaring a Dag's task graph in Java, and the base of every
  * generated `<Dag>Deps` wiring view.
@@ -28,7 +30,7 @@ package org.apache.airflow.sdk
  */
 interface Deps {
   /**
-   * A point in the task graph: one task, or a set of them.
+   * A point in the task graph: one task, one task group, or a set of them.
    *
    * [Flow] declares a dependency where nothing flows but the ordering. An
    * edge that carries a value is declared by passing the upstream's handle
@@ -53,8 +55,7 @@ interface Deps {
      * @return This point in the flow.
      */
     fun before(vararg next: Flow): Flow {
-      val upstreams = nodes()
-      next.flatMap { it.nodes() }.forEach { downstream -> upstreams.forEach { downstream.dependsOn(it) } }
+      next.forEach { link(this, it) }
       return this
     }
 
@@ -69,8 +70,7 @@ interface Deps {
      * @return This point in the flow.
      */
     fun after(vararg previous: Flow): Flow {
-      val downstreams = nodes()
-      previous.flatMap { it.nodes() }.forEach { upstream -> downstreams.forEach { it.dependsOn(upstream) } }
+      previous.forEach { link(it, this) }
       return this
     }
 
@@ -84,7 +84,7 @@ interface Deps {
        * ```
        */
       @JvmStatic
-      fun of(vararg flows: Flow): Flow = FlowSet(flows.flatMap { it.nodes() })
+      fun of(vararg flows: Flow): Flow = FlowSet(flows.toList())
     }
   }
 
@@ -98,9 +98,87 @@ interface Deps {
   fun <T> lit(value: T?): Arg<T> = Arg.lit(value)
 }
 
-/** Several tasks as one point in the flow, which no single [TaskRef] can represent. */
-internal class FlowSet(
-  private val nodes: List<TaskDef>,
-) : Deps.Flow {
-  override fun nodes(): List<TaskDef> = nodes
+/**
+ * One task group of the Dag being wired: a point in the flow, and the
+ * namespace of the tasks and groups declared inside it.
+ *
+ * The generated wiring view nests one of these per [Builder.TaskGroup] class,
+ * so a group is reached by calling it and its contents by calling on through:
+ *
+ * ```java
+ * staging().stage(rows);          // the task "staging.stage"
+ * staging().checks().nulls(id);   // the task "staging.checks.nulls"
+ * extract().before(staging());    // the whole group runs after extract
+ * ```
+ */
+interface Group : Deps.Flow {
+  /** Full ID of this group, as the Dag registered it. */
+  fun groupId(): String
+
+  override fun nodes(): List<TaskDef> = Refs.group(groupId()).nodes()
 }
+
+/** Several tasks or groups as one point in the flow, which no single handle can represent. */
+internal class FlowSet(
+  internal val flows: List<Deps.Flow>,
+) : Deps.Flow {
+  override fun nodes(): List<TaskDef> = flows.flatMap { it.nodes() }
+}
+
+/**
+ * Draws an ordering edge from each endpoint of [upstream] to each of
+ * [downstream]. An edge between two tasks is recorded on the downstream task;
+ * one with a task group at either end is recorded on the group's Dag and
+ * expanded onto tasks when the Dag is registered, once the group is complete.
+ */
+private fun link(
+  upstream: Deps.Flow,
+  downstream: Deps.Flow,
+) {
+  for (up in upstream.endpoints()) {
+    for (down in downstream.endpoints()) {
+      if (up is TaskDef && down is TaskDef) {
+        down.dependsOn(up)
+      } else {
+        val upDag = up.owningDag()
+        val downDag = down.owningDag()
+        require(upDag == null || downDag == null || upDag === downDag) {
+          "Cannot order ${up.endpointName()} of Dag '${upDag?.id}' before ${down.endpointName()} of " +
+            "Dag '${downDag?.id}'; an edge stays inside one Dag"
+        }
+        (upDag ?: downDag)?.let { dag ->
+          require(!dag.groupEdgesExpanded) {
+            "Cannot order ${up.endpointName()} before ${down.endpointName()}: Dag '${dag.id}' is already " +
+              "registered, and a task group's edges are expanded onto its tasks when it is; draw them first"
+          }
+          dag.groupEdges += up to down
+        }
+      }
+    }
+  }
+}
+
+/** The Dag an endpoint belongs to, null for a task not registered with one yet. */
+private fun Any.owningDag(): DagDef? =
+  when (this) {
+    is TaskGroupRef -> dag
+    else -> (this as TaskDef).owner
+  }
+
+/** How an endpoint is named in a diagnostic. */
+private fun Any.endpointName(): String =
+  when (this) {
+    is TaskGroupRef -> "task group '$id'"
+    else -> "task '${(this as TaskDef).id}'"
+  }
+
+/** The tasks and groups at this point in the flow, each a [TaskDef] or [TaskGroupRef]. */
+private fun Deps.Flow.endpoints(): List<Any> =
+  when (this) {
+    is TaskGroupRef -> listOf(this)
+    // A generated group view stands for the group itself, not for the tasks it
+    // holds, so an edge drawn before its tasks exist still reaches them.
+    is Group -> listOf(Refs.group(groupId()))
+    is FlowSet -> flows.flatMap { it.endpoints() }
+    else -> nodes()
+  }

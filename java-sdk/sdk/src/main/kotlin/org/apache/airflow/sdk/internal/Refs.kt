@@ -22,6 +22,7 @@ package org.apache.airflow.sdk.internal
 import org.apache.airflow.sdk.Arg
 import org.apache.airflow.sdk.DagDef
 import org.apache.airflow.sdk.TaskDef
+import org.apache.airflow.sdk.TaskGroupRef
 import org.apache.airflow.sdk.TaskRef
 
 /**
@@ -39,6 +40,7 @@ import org.apache.airflow.sdk.TaskRef
 object Refs {
   private class Recording(
     val dag: DagDef,
+    val groupOf: Map<String, String>,
   ) {
     val byTaskId = linkedMapOf<String, TaskRef<*>>()
   }
@@ -57,9 +59,30 @@ object Refs {
     dag: DagDef,
     taskIds: List<String>,
     depends: Runnable,
+  ): DagDef = record(dag, taskIds, emptyList(), emptyMap(), depends)
+
+  /**
+   * Runs one `depends()` call as [record] does, for a Dag whose tasks sit in
+   * task groups.
+   *
+   * @param groupIds Full ID of every task group, parents before the groups
+   *    nested in them. All are created before `depends()` runs, so the wiring
+   *    can order a group before calling any of its tasks, and a group holding
+   *    no tasks still exists.
+   * @param groupOf The group each grouped task belongs to, task ID to full
+   *    group ID.
+   */
+  @JvmStatic
+  fun record(
+    dag: DagDef,
+    taskIds: List<String>,
+    groupIds: List<String>,
+    groupOf: Map<String, String>,
+    depends: Runnable,
   ): DagDef {
     check(recording.get() == null) { "Dag wiring is already being recorded on this thread" }
-    recording.set(Recording(dag))
+    groupIds.forEach { ensureGroup(dag, it) }
+    recording.set(Recording(dag, groupOf))
     try {
       depends.run()
     } finally {
@@ -116,7 +139,40 @@ object Refs {
     }
     inputs.filterIsInstance<TaskRef<*>>().forEach { def.dependsOn(it.def) }
     def.inputs += inputs
-    active.dag.addTask(def)
+    val group = active.groupOf[def.id]
+    if (group == null) {
+      active.dag.addTask(def)
+    } else {
+      active.dag.groups
+        .getValue(group)
+        .adopt(def)
+    }
     return TaskRef<T>(def).also { active.byTaskId[def.id] = it }
+  }
+
+  /**
+   * The task group with this full ID in the Dag being recorded. Public so the
+   * generated wiring view can resolve the group it stands for.
+   */
+  @JvmStatic
+  fun group(id: String): TaskGroupRef {
+    val active =
+      checkNotNull(recording.get()) {
+        "Task group '$id' was looked up outside a @Builder.Deps class"
+      }
+    return requireNotNull(active.dag.groups[id]) {
+      "Dag '${active.dag.id}' has no task group '$id'"
+    }
+  }
+
+  /** The group with full ID [id] in [dag], created with every enclosing group it is missing. */
+  private fun ensureGroup(
+    dag: DagDef,
+    id: String,
+  ): TaskGroupRef {
+    dag.groups[id]?.let { return it }
+    val parentId = id.substringBeforeLast('.', "")
+    val parent = if (parentId.isEmpty()) null else ensureGroup(dag, parentId)
+    return if (parent == null) dag.taskGroup(id) else parent.taskGroup(id.substringAfterLast('.'))
   }
 }

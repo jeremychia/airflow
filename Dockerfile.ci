@@ -554,7 +554,8 @@ install_mariadb_client() {
     # Make sure that dependencies from MariaDB repo are preferred over Debian dependencies
     printf "Package: *\nPin: release o=MariaDB\nPin-Priority: 999\n" > /etc/apt/preferences.d/mariadb
     retry apt-get update
-    retry apt-get install --no-install-recommends -y "${packages[@]}"
+    # Keep the hardened image's conffiles if a dependency upgrades base packages (see install_mssql.sh).
+    retry apt-get install --no-install-recommends -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold "${packages[@]}"
     apt-get autoremove -yqq --purge
     apt-get clean && rm -rf /var/lib/apt/lists/*
 }
@@ -598,7 +599,9 @@ function install_mssql_client() {
     mkdir -p /opt/microsoft/msodbcsql18 &&
     touch /opt/microsoft/msodbcsql18/ACCEPT_EULA &&
     apt-get update -yqq &&
-    apt-get upgrade -yqq &&
+    # The hardened base images ship a modified /etc/debian_version, so upgrading base-files stops at
+    # dpkg's interactive conffile prompt and fails the build; keep the image's copy instead.
+    apt-get upgrade -yqq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold &&
     apt-get -yqq install --no-install-recommends "${packages[@]}" &&
     apt-get autoremove -yqq --purge &&
     apt-get clean &&
@@ -640,7 +643,8 @@ install_postgres_client() {
     echo "deb [arch=amd64,arm64] https://apt.postgresql.org/pub/repos/apt/ $(common::debian_codename)-pgdg main" > \
         /etc/apt/sources.list.d/pgdg.list
     apt-get update
-    apt-get install --no-install-recommends -y "${packages[@]}"
+    # Keep the hardened image's conffiles if a dependency upgrades base packages (see install_mssql.sh).
+    apt-get install --no-install-recommends -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold "${packages[@]}"
     apt-get autoremove -yqq --purge
     apt-get clean && rm -rf /var/lib/apt/lists/*
 }
@@ -784,12 +788,12 @@ function common::get_constraints_location() {
 
 function common::show_packaging_tool_version_and_location() {
    echo "PATH=${PATH}"
-   echo "Installed pip: $(pip --version): $(which pip)"
+   echo "Installed pip: $(pip --version): $(command -v pip)"
    if [[ ${PACKAGING_TOOL} == "pip" ]]; then
        echo "${COLOR_BLUE}Using 'pip' to install Airflow${COLOR_RESET}"
    else
        echo "${COLOR_BLUE}Using 'uv' to install Airflow${COLOR_RESET}"
-       echo "Installed uv: $(uv --version 2>/dev/null || echo "Not installed yet"): $(which uv 2>/dev/null)"
+       echo "Installed uv: $(uv --version 2>/dev/null || echo "Not installed yet"): $(command -v uv 2>/dev/null)"
    fi
 }
 
@@ -801,7 +805,7 @@ function common::install_packaging_tools() {
         echo
     else
         echo
-        echo "${COLOR_BLUE}Checking packaging tools for system Python installation: $(which python)${COLOR_RESET}"
+        echo "${COLOR_BLUE}Checking packaging tools for system Python installation: $(command -v python)${COLOR_RESET}"
         echo
     fi
     if [[ ${AIRFLOW_PIP_VERSION=} == "" ]]; then

@@ -111,7 +111,8 @@ install_mariadb_client() {
     # Make sure that dependencies from MariaDB repo are preferred over Debian dependencies
     printf "Package: *\nPin: release o=MariaDB\nPin-Priority: 999\n" > /etc/apt/preferences.d/mariadb
     retry apt-get update
-    retry apt-get install --no-install-recommends -y "${packages[@]}"
+    # Keep the hardened image's conffiles if a dependency upgrades base packages (see install_mssql.sh).
+    retry apt-get install --no-install-recommends -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold "${packages[@]}"
     apt-get autoremove -yqq --purge
     apt-get clean && rm -rf /var/lib/apt/lists/*
 }

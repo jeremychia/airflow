@@ -136,12 +136,12 @@ function common::get_constraints_location() {
 
 function common::show_packaging_tool_version_and_location() {
    echo "PATH=${PATH}"
-   echo "Installed pip: $(pip --version): $(which pip)"
+   echo "Installed pip: $(pip --version): $(command -v pip)"
    if [[ ${PACKAGING_TOOL} == "pip" ]]; then
        echo "${COLOR_BLUE}Using 'pip' to install Airflow${COLOR_RESET}"
    else
        echo "${COLOR_BLUE}Using 'uv' to install Airflow${COLOR_RESET}"
-       echo "Installed uv: $(uv --version 2>/dev/null || echo "Not installed yet"): $(which uv 2>/dev/null)"
+       echo "Installed uv: $(uv --version 2>/dev/null || echo "Not installed yet"): $(command -v uv 2>/dev/null)"
    fi
 }
 
@@ -153,7 +153,7 @@ function common::install_packaging_tools() {
         echo
     else
         echo
-        echo "${COLOR_BLUE}Checking packaging tools for system Python installation: $(which python)${COLOR_RESET}"
+        echo "${COLOR_BLUE}Checking packaging tools for system Python installation: $(command -v python)${COLOR_RESET}"
         echo
     fi
     if [[ ${AIRFLOW_PIP_VERSION=} == "" ]]; then

@@ -30,6 +30,9 @@ test_dags.yaml and of the JSON file to write appended, and writes each Dag as
     python3 scripts/ci/lang_sdk_serialization/compare.py --sdk typescript -- \
         pnpm --dir ts-sdk exec tsx tests/conformance/serialize_typescript.ts
 
+Each SDK's own prek hook runs it this way, such as
+java-sdk/scripts/ci/prek/check_serialization_conformance.py for the Java SDK.
+
 On a failure the files are kept, and their directory is printed.
 """
 
@@ -83,21 +86,25 @@ def get_task_defaults() -> dict[str, Any]:
     return {key: field["default"] for key, field in fields.items() if field.get("default") is not None}
 
 
-def normalize_as_javascript(value: Any) -> Any:
-    """Read a JSON value as JavaScript does: one number type, and a bool that is not a number."""
+def normalize_numbers(value: Any) -> Any:
+    """
+    Read a JSON value with one number type, and a bool that is not a number.
+
+    An SDK may write ``2`` where Python writes ``2.0``, as JavaScript does, which has one number type.
+    """
     if isinstance(value, bool):
         return ("bool", value)
     if isinstance(value, (int, float)):
         return float(value)
     if isinstance(value, list):
-        return [normalize_as_javascript(item) for item in value]
+        return [normalize_numbers(item) for item in value]
     if isinstance(value, dict):
-        return {key: normalize_as_javascript(item) for key, item in value.items()}
+        return {key: normalize_numbers(item) for key, item in value.items()}
     return value
 
 
 def is_same_json(python: Any, sdk: Any) -> bool:
-    return normalize_as_javascript(python) == normalize_as_javascript(sdk)
+    return normalize_numbers(python) == normalize_numbers(sdk)
 
 
 def find_differences(path: str, python: Any, sdk: Any) -> list[str]:

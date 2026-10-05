@@ -69,21 +69,25 @@ Breeze supports two debugger options:
     # Use PyCharm debugger
     breeze start-airflow --debug scheduler --debugger pydevd-pycharm
 
-Using mprocs Instead of tmux
------------------------------
+Choosing dekit or tmux
+----------------------
 
-By default, ``breeze start-airflow`` uses tmux to manage multiple Airflow components. You can use
-mprocs as an alternative process manager with the ``--use-mprocs`` flag:
+By default, ``breeze start-airflow`` uses dekit (the next version of mprocs) to manage multiple Airflow
+components. You can choose the terminal multiplexer with the ``--terminal-multiplexer`` option, and
+Breeze remembers the choice for the next run:
 
 .. code-block:: bash
 
-    # Use mprocs instead of tmux
-    breeze start-airflow --use-mprocs
+    # Use dekit (the default)
+    breeze start-airflow --terminal-multiplexer dekit
 
-    # Use mprocs with debugging
-    breeze start-airflow --use-mprocs --debug scheduler --debug triggerer
+    # Use dekit with debugging
+    breeze start-airflow --terminal-multiplexer dekit --debug scheduler --debug triggerer
 
-**Benefits of mprocs:**
+    # Use tmux instead
+    breeze start-airflow --terminal-multiplexer tmux
+
+**Benefits of dekit:**
 
 * Modern TUI with intuitive navigation
 * Better keyboard shortcuts and mouse support

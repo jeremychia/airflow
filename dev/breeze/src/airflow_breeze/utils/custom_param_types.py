@@ -30,6 +30,7 @@ from airflow_breeze.utils.cache import (
     check_if_values_allowed,
     read_and_validate_value_from_cache,
     read_from_cache_file,
+    resolve_value_alias,
     write_to_cache_file,
 )
 from airflow_breeze.utils.coertions import coerce_bool_value
@@ -170,6 +171,7 @@ class CacheableChoice(click.Choice):
             if not is_cached:
                 console_print(f"\n[info]Default value of {param.name} parameter {new_value} used.[/]\n")
         else:
+            value = resolve_value_alias(param_name, value)
             allowed, allowed_values = check_if_values_allowed(param_name, value)
             if allowed:
                 new_value = value

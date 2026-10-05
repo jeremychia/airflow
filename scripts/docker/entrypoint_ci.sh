@@ -246,9 +246,10 @@ SSH_CONFIG
         if [[ ${SKIP_ASSETS_COMPILATION:="false"} == "false" ]]; then
             wait_for_asset_compilation
         fi
-        if [[ ${TERMINAL_MULTIPLEXER:="mprocs"} == "mprocs" ]]; then
-            # shellcheck source=scripts/in_container/bin/run_mprocs
-            exec run_mprocs
+        # "mprocs" is the old name of dekit, still accepted from older Breeze versions.
+        if [[ ${TERMINAL_MULTIPLEXER:="dekit"} == "dekit" || ${TERMINAL_MULTIPLEXER} == "mprocs" ]]; then
+            # shellcheck source=scripts/in_container/bin/run_dekit
+            exec run_dekit
         else
             # shellcheck source=scripts/in_container/bin/run_tmux
             exec run_tmux

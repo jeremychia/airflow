@@ -766,7 +766,7 @@ UPGRADE_GITPYTHON: bool = get_env_bool("UPGRADE_GITPYTHON")
 UPGRADE_GOLANG: bool = get_env_bool("UPGRADE_GOLANG")
 UPGRADE_HATCH: bool = get_env_bool("UPGRADE_HATCH")
 UPGRADE_HATCHLING: bool = get_env_bool("UPGRADE_HATCHLING")
-UPGRADE_MPROCS: bool = get_env_bool("UPGRADE_MPROCS")
+UPGRADE_DEKIT: bool = get_env_bool("UPGRADE_DEKIT")
 UPGRADE_NODE_LTS: bool = get_env_bool("UPGRADE_NODE_LTS")
 UPGRADE_PIP: bool = get_env_bool("UPGRADE_PIP")
 UPGRADE_PREK: bool = get_env_bool("UPGRADE_PREK")
@@ -885,8 +885,8 @@ SIMPLE_VERSION_PATTERNS: dict[str, list[tuple[str, str]]] = {
     "protoc": [
         (r"(rvolosatovs/protoc:)(v[0-9.]+)", "rvolosatovs/protoc:{version}"),
     ],
-    "mprocs": [
-        (r"(ARG MPROCS_VERSION=)(\"[0-9.]+\")", 'ARG MPROCS_VERSION="{version}"'),
+    "dekit": [
+        (r"(ARG DEKIT_VERSION=)(\"[0-9.]+\")", 'ARG DEKIT_VERSION="{version}"'),
     ],
     "openapi_generator": [
         (r"(OPENAPI_GENERATOR_CLI_VER = )(\"[0-9.]+\")", 'OPENAPI_GENERATOR_CLI_VER = "{version}"'),
@@ -942,7 +942,8 @@ def fetch_all_package_versions() -> dict[str, str]:
         "protoc": get_latest_image_version("rvolosatovs/protoc") if UPGRADE_PROTOC else "",
         "alpine": get_latest_image_version("alpine") if UPGRADE_ALPINE else "",
         "busybox": get_latest_image_version("busybox") if UPGRADE_BUSYBOX else "",
-        "mprocs": get_latest_github_release_version("pvolok/mprocs") if UPGRADE_MPROCS else "",
+        # dekit is still released from the mprocs repository.
+        "dekit": get_latest_github_release_version("pvolok/mprocs") if UPGRADE_DEKIT else "",
         "openapi_generator": get_latest_openapi_generator_version() if UPGRADE_OPENAPI_GENERATOR else "",
         "sphinx_airflow_theme": get_latest_sphinx_airflow_theme_version()
         if UPGRADE_SPHINX_AIRFLOW_THEME

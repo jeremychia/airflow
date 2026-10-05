@@ -1660,7 +1660,7 @@ pip install apache-airflow-providers-<provider>==<VERSION>rc<X>
 ```
 
 NOTE! After installing the provider package, restart the Airflow components so the new provider is loaded.
-If you started Breeze with `breeze start-airflow`, in the terminal multiplexer (mprocs or tmux)
+If you started Breeze with `breeze start-airflow`, in the terminal multiplexer (dekit or tmux)
 use the keyboard shortcuts to **stop** and then **start** each managed component:
 **scheduler**, **api_server**, **triggerer**, and **dag_processor**.
 

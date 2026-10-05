@@ -22,7 +22,7 @@
 #   "PyYAML>=6.0",
 # ]
 # ///
-"""Generate mprocs configuration dynamically based on environment variables."""
+"""Generate the dekit configuration (``dekit.yaml``) for ``breeze start-airflow`` from environment variables."""
 
 from __future__ import annotations
 
@@ -46,9 +46,9 @@ def get_env(var_name: str, default: str = "") -> str:
     return os.environ.get(var_name, default)
 
 
-def generate_mprocs_config() -> str:
-    """Generate mprocs YAML configuration based on environment variables."""
-    procs = {}
+def get_component_commands() -> dict[str, str]:
+    """Return the shell command of each Airflow component to run, by task name."""
+    procs: dict[str, str] = {}
 
     # Scheduler
     scheduler_cmd = "airflow scheduler"
@@ -56,11 +56,7 @@ def generate_mprocs_config() -> str:
         port = get_env("BREEZE_DEBUG_SCHEDULER_PORT", "5678")
         scheduler_cmd = f"debugpy --listen 0.0.0.0:{port} --wait-for-client -m airflow scheduler"
 
-    procs["scheduler"] = {
-        "shell": scheduler_cmd,
-        "restart": "always",
-        "scrollback": 100000,
-    }
+    procs["scheduler"] = scheduler_cmd
 
     # API Server or Webserver (depending on Airflow version)
     use_airflow_version = get_env("USE_AIRFLOW_VERSION", "")
@@ -84,7 +80,7 @@ def generate_mprocs_config() -> str:
             api_cmd = (
                 f"airflow api-server {api_host_arg} -d" if dev_mode else f"airflow api-server {api_host_arg}"
             )
-        procs["api_server"] = {"shell": api_cmd, "restart": "always", "scrollback": 100000}
+        procs["api_server"] = api_cmd
     else:
         # Webserver (Airflow 2.x)
         if get_env_bool("BREEZE_DEBUG_WEBSERVER"):
@@ -94,11 +90,7 @@ def generate_mprocs_config() -> str:
             dev_mode = get_env_bool("DEV_MODE")
             web_cmd = "airflow webserver -d" if dev_mode else "airflow webserver"
 
-        procs["webserver"] = {
-            "shell": web_cmd,
-            "restart": "always",
-            "scrollback": 100000,
-        }
+        procs["webserver"] = web_cmd
 
     # Triggerer
     triggerer_cmd = "airflow triggerer"
@@ -106,11 +98,7 @@ def generate_mprocs_config() -> str:
         port = get_env("BREEZE_DEBUG_TRIGGERER_PORT", "5681")
         triggerer_cmd = f"debugpy --listen 0.0.0.0:{port} --wait-for-client -m airflow triggerer"
 
-    procs["triggerer"] = {
-        "shell": triggerer_cmd,
-        "restart": "always",
-        "scrollback": 100000,
-    }
+    procs["triggerer"] = triggerer_cmd
 
     # Celery Worker (conditional)
     if get_env_bool("INTEGRATION_CELERY"):
@@ -120,11 +108,7 @@ def generate_mprocs_config() -> str:
         else:
             celery_cmd = "airflow celery worker"
 
-        procs["celery_worker"] = {
-            "shell": celery_cmd,
-            "restart": "always",
-            "scrollback": 100000,
-        }
+        procs["celery_worker"] = celery_cmd
 
     # Flower (conditional)
     if get_env_bool("INTEGRATION_CELERY") and get_env_bool("CELERY_FLOWER"):
@@ -134,11 +118,7 @@ def generate_mprocs_config() -> str:
         else:
             flower_cmd = "airflow celery flower"
 
-        procs["flower"] = {
-            "shell": flower_cmd,
-            "restart": "always",
-            "scrollback": 100000,
-        }
+        procs["flower"] = flower_cmd
 
     # Edge Worker (conditional)
     executor = get_env("AIRFLOW__CORE__EXECUTOR", "")
@@ -159,7 +139,7 @@ def generate_mprocs_config() -> str:
             ]
             edge_cmd = " && ".join(edge_cmd_parts)
 
-        procs["edge_worker"] = {"shell": edge_cmd, "restart": "always", "scrollback": 100000}
+        procs["edge_worker"] = edge_cmd
 
     # Dag Processor (conditional)
     if get_env_bool("STANDALONE_DAG_PROCESSOR"):
@@ -169,20 +149,28 @@ def generate_mprocs_config() -> str:
         else:
             dag_proc_cmd = "airflow dag-processor"
 
-        procs["dag_processor"] = {
-            "shell": dag_proc_cmd,
-            "restart": "always",
-            "scrollback": 100000,
-        }
+        procs["dag_processor"] = dag_proc_cmd
 
-    procs["shell"] = {
-        "shell": "bash",
-        "restart": "always",
-        "scrollback": 100000,
+    procs["shell"] = "bash"
+    return procs
+
+
+def generate_dekit_config(cwd: str) -> str:
+    """Generate the ``dekit.yaml`` that runs every component as an autostarted, always restarted task."""
+    tasks = {
+        # dekit runs a command without a shell, so each runs through bash as it did under mprocs.
+        name: {"cmd": ["bash", "-c", command], "autostart": True}
+        for name, command in get_component_commands().items()
     }
-
-    # Generate YAML output
-    config_dict = {"procs": procs}
+    config_dict = {
+        "defaults": {
+            # The tasks run where Breeze starts them, not in the dekit project directory.
+            "cwd": cwd,
+            "autorestart": "always",
+            "scrollback_len": 100000,
+        },
+        "tasks": tasks,
+    }
     return yaml.dump(config_dict, default_flow_style=False, sort_keys=False)
 
 
@@ -193,14 +181,14 @@ def main():
         os.environ["AIRFLOW__CORE__EXECUTOR"] = "LocalExecutor"
 
     # Generate and print configuration
-    config = generate_mprocs_config()
+    config = generate_dekit_config(cwd=os.getcwd())
 
     # Determine output path
     if len(sys.argv) > 1:
         output_path = sys.argv[1]
     else:
         temp_dir = tempfile.gettempdir()
-        output_path = os.path.join(temp_dir, "mprocs.yaml")
+        output_path = os.path.join(temp_dir, "dekit.yaml")
 
     with open(output_path, "w") as f:
         f.write(config)
@@ -210,7 +198,7 @@ def main():
         console = Console()
 
         console.print(
-            f"\n[bold green]✓[/bold green] Generated mprocs configuration at: [cyan]{output_path}[/cyan]"
+            f"\n[bold green]✓[/bold green] Generated dekit configuration at: [cyan]{output_path}[/cyan]"
         )
 
         # Display configuration with syntax highlighting

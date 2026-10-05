@@ -97,14 +97,14 @@ Option A – Breeze on Your Laptop
 
     breeze start-airflow
 
-The command starts a shell and launches multiple terminals using ``mprocs`` by default
+The command starts a shell and launches multiple terminals using ``dekit`` by default
 and launches all Airflow necessary components in those terminals.
 You can also choose to use ``tmux`` via the ``--terminal-multiplexer tmux`` option.
 If you are using tmux, check out this cheat sheet to learn more about its commands: https://tmuxcheatsheet.com/.
 
 Now you can also access the Airflow UI on your local machine at `http://localhost:28080 <http://localhost:28080>`_ with user name ``admin`` and password ``admin``.
 
-To exit breeze, press ``q`` in the ``mprocs`` interface (or in any of the tmux panes) and clean up the resources by running the following command:
+To exit breeze, press ``q`` in the ``dekit`` interface (or in any of the tmux panes) and clean up the resources by running the following command:
 
 .. code-block:: bash
 

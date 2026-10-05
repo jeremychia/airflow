@@ -644,7 +644,7 @@ Using Breeze
 If Breeze was started with ``breeze start-airflow``, first exit the terminal multiplexer so that the
 Breeze container stops and releases its forwarded ports:
 
-* With mprocs (the default), press ``q`` in the mprocs interface.
+* With dekit (the default), press ``q`` in the dekit interface.
 * With tmux, run ``stop_airflow`` from the main shell pane:
 
 .. code-block:: bash
@@ -665,15 +665,18 @@ If ``breeze`` was started with ``breeze --python 3.10 --backend postgres`` (or s
   breeze down
 
 .. note::
-    ``stop_airflow`` is available only when ``breeze start-airflow`` uses tmux. Use ``q`` to quit
-    the default mprocs interface.
+    ``stop_airflow`` is available only when ``breeze start-airflow`` uses tmux. Use ``q`` to leave
+    the default dekit interface.
 
-Using tmux Instead of mprocs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Using tmux Instead of dekit
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-By default, ``breeze start-airflow`` uses mprocs to manage Airflow components. You can use ``tmux`` as an
+By default, ``breeze start-airflow`` uses `dekit <https://github.com/pvolok/mprocs>`__ (the next version of
+mprocs, which Breeze used before) to manage Airflow components. You can use ``tmux`` as an
 alternative with the ``--terminal-multiplexer tmux`` argument. The last choice of yours will be remembered
-for the next run, you can switch back to ``mprocs`` anytime by using ``--terminal-multiplexer mprocs``.
+for the next run, you can switch back to ``dekit`` anytime by using ``--terminal-multiplexer dekit``.
+``mprocs`` is still accepted as another name for ``dekit``, and a remembered ``mprocs`` choice is switched
+to ``dekit`` automatically.
 
 .. code-block:: bash
 
@@ -683,14 +686,14 @@ and
 
 .. code-block:: bash
 
-  breeze start-airflow --terminal-multiplexer mprocs
+  breeze start-airflow --terminal-multiplexer dekit
 
 You can also switch terminal multiplexer via breeze config:
 
 .. code-block:: bash
 
   breeze setup config --terminal-multiplexer tmux
-  breeze setup config --terminal-multiplexer mprocs
+  breeze setup config --terminal-multiplexer dekit
 
 **Benefits of using tmux:**
 
@@ -700,7 +703,7 @@ You can also switch terminal multiplexer via breeze config:
 * Wide range of plugins and extensions
 * ability to see more than one log at a time
 
-**Benefits of using mprocs:**
+**Benefits of using dekit:**
 
 * Modern terminal UI with better visual feedback
 * Easier navigation with mouse and keyboard
@@ -708,7 +711,7 @@ You can also switch terminal multiplexer via breeze config:
 * Process status indicators
 * Better cross-platform support
 
-For more information on mprocs, look at `mprocs documentation <mprocs/MPROCS_QUICK_REFERENCE.md>`__.
+For more information on dekit, look at `dekit documentation <dekit/DEKIT_QUICK_REFERENCE.md>`__.
 
 1. Knowing more about Breeze
 

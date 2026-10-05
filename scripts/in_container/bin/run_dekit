@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Run the Airflow components as tasks of a dekit project. The project lives in the container, not in
+# the mounted /files, so no runner state from an earlier Breeze session is picked up.
+DEKIT_PROJECT_DIR="/tmp/breeze-dekit"
+mkdir -p "${DEKIT_PROJECT_DIR}"
+
+if ! uv run "/opt/airflow/scripts/in_container/bin/generate_dekit_config.py" "${DEKIT_PROJECT_DIR}/dekit.yaml"; then
+    echo "Failed to generate dekit configuration"
+    exit 1
+fi
+
+# The task list title is a user setting in dekit; set it unless the user has their own config.
+DEKIT_USER_CONFIG="${XDG_CONFIG_HOME:-${HOME}/.config}/dekit/config.yaml"
+if [[ ! -f ${DEKIT_USER_CONFIG} ]]; then
+    mkdir -p "$(dirname "${DEKIT_USER_CONFIG}")"
+    printf 'tui:\n  sidebar:\n    title: Apache Airflow\n' > "${DEKIT_USER_CONFIG}"
+fi
+
+# Start the runner with every task, then attach to its console. In the console, q detaches, which
+# ends the Breeze session, and Q stops the runner first.
+dekit up -C "${DEKIT_PROJECT_DIR}"
+exec dekit -C "${DEKIT_PROJECT_DIR}"

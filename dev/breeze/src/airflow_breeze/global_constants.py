@@ -176,7 +176,11 @@ AUTOCOMPLETE_ALL_INTEGRATIONS = sorted(
     ]
 )
 ALLOWED_TTY = ["auto", "enabled", "disabled"]
-ALLOWED_TERMINAL_MULTIPLEXERS = ["mprocs", "tmux"]
+ALLOWED_TERMINAL_MULTIPLEXERS = ["dekit", "tmux"]
+# Old names of a choice, still accepted as hidden aliases of the new value: on the command line and in
+# environment variables they mean the new value, and a cached old value is migrated to the new one.
+# mprocs is released as dekit since 0.10.0; Breeze runs dekit in its mprocs mode.
+TERMINAL_MULTIPLEXER_ALIASES = {"mprocs": "dekit"}
 ALLOWED_DOCKER_COMPOSE_PROJECTS = [
     "breeze",
     "breeze-prek",

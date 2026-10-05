@@ -1383,9 +1383,10 @@ SSH_CONFIG
         if [[ ${SKIP_ASSETS_COMPILATION:="false"} == "false" ]]; then
             wait_for_asset_compilation
         fi
-        if [[ ${TERMINAL_MULTIPLEXER:="mprocs"} == "mprocs" ]]; then
-            # shellcheck source=scripts/in_container/bin/run_mprocs
-            exec run_mprocs
+        # "mprocs" is the old name of dekit, still accepted from older Breeze versions.
+        if [[ ${TERMINAL_MULTIPLEXER:="dekit"} == "dekit" || ${TERMINAL_MULTIPLEXER} == "mprocs" ]]; then
+            # shellcheck source=scripts/in_container/bin/run_dekit
+            exec run_dekit
         else
             # shellcheck source=scripts/in_container/bin/run_tmux
             exec run_tmux
@@ -1844,17 +1845,17 @@ RUN SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]') \
     && rm -f /tmp/helm.tar.gz \
     && chmod +x /usr/local/bin/helm
 
-# Install mprocs - a modern process manager for managing multiple Airflow components
-ARG MPROCS_VERSION="0.10.0"
+# Install dekit - the process manager formerly released as mprocs - that runs the Airflow
+# components of `breeze start-airflow` (see scripts/in_container/bin/run_dekit).
+ARG DEKIT_VERSION="0.10.0"
 
-RUN SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]') \
-    && PLATFORM="$(uname -m)" \
-    && MPROCS_URL="https://github.com/pvolok/mprocs/releases/download/v${MPROCS_VERSION}/mprocs-${MPROCS_VERSION}-${SYSTEM}-${PLATFORM}-musl.tar.gz" \
-    && echo "Downloading mprocs from ${MPROCS_URL}" \
-    && curl --silent --location --fail --retry 3 --retry-delay 5 -o /tmp/mprocs.tar.gz "${MPROCS_URL}" \
-    && tar -xzf /tmp/mprocs.tar.gz -C /usr/local/bin/ mprocs \
-    && rm -f /tmp/mprocs.tar.gz \
-    && chmod +x /usr/local/bin/mprocs
+RUN ARCH="$(uname -m)" \
+    && DEKIT_URL="https://github.com/pvolok/mprocs/releases/download/v${DEKIT_VERSION}/dekit-${ARCH}-unknown-linux-musl.tar.gz" \
+    && echo "Downloading dekit from ${DEKIT_URL}" \
+    && curl --silent --location --fail --retry 3 --retry-delay 5 -o /tmp/dekit.tar.gz "${DEKIT_URL}" \
+    && tar -xzf /tmp/dekit.tar.gz -C /usr/local/bin/ dekit \
+    && rm -f /tmp/dekit.tar.gz \
+    && chmod +x /usr/local/bin/dekit
 
 WORKDIR ${AIRFLOW_SOURCES}
 

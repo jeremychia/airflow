@@ -19,14 +19,22 @@ from __future__ import annotations
 from pathlib import Path
 from unittest import mock
 
+import click
 import pytest
+from click.testing import CliRunner
 
-from airflow_breeze.global_constants import ALLOWED_PYTHON_MAJOR_MINOR_VERSIONS
+from airflow_breeze.commands.common_options import option_terminal_multiplexer
+from airflow_breeze.global_constants import (
+    ALLOWED_PYTHON_MAJOR_MINOR_VERSIONS,
+    ALLOWED_TERMINAL_MULTIPLEXERS,
+    TERMINAL_MULTIPLEXER_ALIASES,
+)
 from airflow_breeze.utils.cache import (
     check_if_cache_exists,
     check_if_values_allowed,
     delete_cache,
     read_from_cache_file,
+    resolve_value_alias,
 )
 
 AIRFLOW_SOURCES = Path(__file__).parents[3].resolve()
@@ -90,3 +98,54 @@ def test_delete_cache_not_exists(mock_check_if_cache_exists, mock_path):
     mock_check_if_cache_exists.return_value = False
     cache_deleted = delete_cache(param)
     assert not cache_deleted
+
+
+@pytest.mark.parametrize(
+    ("param_name", "value", "expected"),
+    [
+        ("TERMINAL_MULTIPLEXER", "mprocs", "dekit"),
+        ("TERMINAL_MULTIPLEXER", "dekit", "dekit"),
+        ("TERMINAL_MULTIPLEXER", "tmux", "tmux"),
+        ("BACKEND", "mprocs", "mprocs"),
+    ],
+)
+def test_resolve_value_alias(param_name, value, expected):
+    assert resolve_value_alias(param_name, value) == expected
+
+
+def test_mprocs_is_not_offered_as_a_choice():
+    assert "mprocs" not in ALLOWED_TERMINAL_MULTIPLEXERS
+    assert TERMINAL_MULTIPLEXER_ALIASES["mprocs"] in ALLOWED_TERMINAL_MULTIPLEXERS
+
+
+def test_cached_old_name_is_migrated(monkeypatch, tmp_path):
+    monkeypatch.setattr("airflow_breeze.utils.cache.BUILD_CACHE_PATH", tmp_path)
+    (tmp_path / ".TERMINAL_MULTIPLEXER").write_text("mprocs")
+
+    assert read_from_cache_file("TERMINAL_MULTIPLEXER") == "dekit"
+    assert (tmp_path / ".TERMINAL_MULTIPLEXER").read_text() == "dekit"
+
+
+def test_cached_current_value_is_left_alone(monkeypatch, tmp_path):
+    monkeypatch.setattr("airflow_breeze.utils.cache.BUILD_CACHE_PATH", tmp_path)
+    (tmp_path / ".TERMINAL_MULTIPLEXER").write_text("tmux")
+
+    assert read_from_cache_file("TERMINAL_MULTIPLEXER") == "tmux"
+    assert (tmp_path / ".TERMINAL_MULTIPLEXER").read_text() == "tmux"
+
+
+@pytest.mark.parametrize("given", ["mprocs", "dekit"])
+def test_option_accepts_the_old_name_and_remembers_the_new_one(monkeypatch, tmp_path, given):
+    monkeypatch.setattr("airflow_breeze.utils.cache.BUILD_CACHE_PATH", tmp_path)
+    monkeypatch.delenv("SKIP_SAVING_CHOICES", raising=False)
+
+    @click.command()
+    @option_terminal_multiplexer
+    def command(terminal_multiplexer):
+        click.echo(terminal_multiplexer)
+
+    result = CliRunner().invoke(command, ["--terminal-multiplexer", given])
+
+    assert result.exit_code == 0, result.output
+    assert result.output.strip().splitlines()[-1] == "dekit"
+    assert (tmp_path / ".TERMINAL_MULTIPLEXER").read_text() == "dekit"

@@ -37,10 +37,24 @@ def check_if_cache_exists(param_name: str) -> bool:
     return (Path(BUILD_CACHE_PATH) / f".{param_name}").exists()
 
 
+def resolve_value_alias(param_name: str, param_value: str) -> str:
+    """Return the current value for a hidden alias (an old name) of a choice, else the value itself."""
+    aliases: dict[str, str] = getattr(global_constants, f"{param_name.upper()}_ALIASES", {})
+    return aliases.get(param_value, param_value)
+
+
 def read_from_cache_file(param_name: str) -> str | None:
     cache_exists = check_if_cache_exists(param_name)
     if cache_exists:
-        return (Path(BUILD_CACHE_PATH) / f".{param_name}").read_text().strip()
+        cached_value = (Path(BUILD_CACHE_PATH) / f".{param_name}").read_text().strip()
+        resolved_value = resolve_value_alias(param_name, cached_value)
+        if resolved_value != cached_value:
+            # The choice was renamed: keep the user's preference under its new name.
+            console_print(
+                f"[info]Migrating the cached {param_name} value {cached_value} to {resolved_value}.[/]"
+            )
+            write_to_cache_file(param_name, resolved_value, check_allowed_values=False)
+        return resolved_value
     return None
 
 

@@ -764,7 +764,7 @@ you are running on your host.
 If you used ``breeze start-airflow``, first exit its terminal multiplexer so that the foreground
 container releases its forwarded ports:
 
-* With mprocs (the default), press ``q`` in the mprocs interface.
+* With dekit (the default), press ``q`` in the dekit interface.
 * With tmux, run ``stop_airflow`` from its main shell pane.
 
 After returning to the host shell, stop the remaining Docker Compose services:

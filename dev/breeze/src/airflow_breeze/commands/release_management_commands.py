@@ -5181,6 +5181,35 @@ def check_release_files(
         sys.exit(0)
 
 
+HARDENED_PYTHON_CATALOG_URL = (
+    "https://raw.githubusercontent.com/docker-hardened-images/catalog/main/image/python/debian-12/"
+    "{python}-dev.yaml"
+)
+HARDENED_PYTHON_PATCHLEVEL_TAG = re.compile(r"^\s*-\s*(\d+\.\d+\.\d+)-debian12-dev\s*$", re.MULTILINE)
+
+
+def get_latest_hardened_python_patchlevel(python: str) -> str | None:
+    """
+    Return the newest patchlevel Docker publishes for a Python major.minor, or None if unknown.
+
+    Read from the image definition in Docker's public catalog. Mirroring it ahead of the pinned
+    patchlevel is what lets the "upgrade important versions" check bump the pin without the bump
+    pointing at a tag the mirror does not have yet.
+    """
+    import requests
+
+    try:
+        response = requests.get(HARDENED_PYTHON_CATALOG_URL.format(python=python), timeout=30)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        console_print(f"[warning]Could not read the hardened Python {python} definition: {e}[/]")
+        return None
+    versions = HARDENED_PYTHON_PATCHLEVEL_TAG.findall(response.text)
+    if not versions:
+        return None
+    return max(versions, key=lambda version: tuple(int(part) for part in version.split(".")))
+
+
 @release_management_group.command(
     name="mirror-base-images",
     help="Mirror the hardened Python base images Airflow builds on to Airflow's public registry.",
@@ -5200,16 +5229,28 @@ def mirror_base_images(python: str | None):
             ALL_PYTHON_VERSION_TO_PATCHLEVEL_VERSION.get(python_version, python_version), python_version, 1
         )
         targets = [f"{HARDENED_PYTHON_IMAGE_MIRROR}:{tag}", f"{HARDENED_PYTHON_IMAGE_MIRROR}:{floating_tag}"]
-        console_print(f"[info]Mirroring {source} -> {', '.join(targets)}[/]")
-        # imagetools copies the multi-platform manifest registry-to-registry, so the layers never
-        # travel through the machine running this.
-        tag_flags = [flag for target in targets for flag in ("--tag", target)]
-        result = run_command(
-            ["docker", "buildx", "imagetools", "create", *tag_flags, source],
-            check=False,
-        )
-        if result.returncode != 0:
-            failed.append(source)
+        copies = [(source, targets)]
+        pinned = ALL_PYTHON_VERSION_TO_PATCHLEVEL_VERSION.get(python_version, python_version)
+        latest = get_latest_hardened_python_patchlevel(python_version)
+        if latest and latest != pinned:
+            latest_tag = tag.replace(pinned, latest, 1)
+            copies.append(
+                (
+                    f"{HARDENED_PYTHON_IMAGE_SOURCE}:{latest_tag}",
+                    [f"{HARDENED_PYTHON_IMAGE_MIRROR}:{latest_tag}"],
+                )
+            )
+        for copy_source, copy_targets in copies:
+            console_print(f"[info]Mirroring {copy_source} -> {', '.join(copy_targets)}[/]")
+            # imagetools copies the multi-platform manifest registry-to-registry, so the layers never
+            # travel through the machine running this.
+            tag_flags = [flag for target in copy_targets for flag in ("--tag", target)]
+            result = run_command(
+                ["docker", "buildx", "imagetools", "create", *tag_flags, copy_source],
+                check=False,
+            )
+            if result.returncode != 0:
+                failed.append(copy_source)
     if failed:
         console_print(f"[error]Failed to mirror: {', '.join(failed)}[/]")
         sys.exit(1)

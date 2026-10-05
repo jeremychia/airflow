@@ -927,7 +927,9 @@ previous images that can matter when you extend or run the image are:
   scripts do) when you upgrade packages in a custom image.
 * **The tags are rebuilt in place.** Docker republishes the same tags as CVEs are fixed, and Airflow
   refreshes its mirror weekly, so rebuilding an image from the same ``BASE_IMAGE`` tag can pick up a newer
-  base.
+  base. The weekly mirror also copies the newest Python patch release Docker publishes, and Airflow's
+  regular dependency upgrade moves the pinned patch level to it, so the images follow Docker's releases
+  rather than python.org's.
 
 .. _image-build-fips:
 

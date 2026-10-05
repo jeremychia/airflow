@@ -252,6 +252,15 @@ function install_docker_cli() {
     apt-get install -y --no-install-recommends docker-ce-cli
 }
 
+function keep_image_conffiles() {
+    # The hardened base images ship a modified /etc/debian_version, so any apt run that upgrades
+    # base-files stops at dpkg's interactive conffile prompt and fails a non-interactive build. Making
+    # dpkg keep the image's copy by default covers every apt run - this build's and those of images
+    # extending it - so no install command has to remember the flags.
+    mkdir -p /etc/dpkg/dpkg.cfg.d
+    printf '%s\n' force-confdef force-confold > /etc/dpkg/dpkg.cfg.d/airflow-keep-conffiles
+}
+
 function restore_debian_base_files() {
     # The hardened base images ship a minimal /etc, but Debian maintainer scripts assume the files
     # a stock Debian has: sasl2-bin chowns its run directory to the "sasl" group from base-passwd,
@@ -274,6 +283,7 @@ function restore_debian_base_files() {
 }
 
 function install_debian_dev_dependencies() {
+    keep_image_conffiles
     apt-get update
     apt-get install -yqq --no-install-recommends apt-utils >/dev/null 2>&1
     restore_debian_base_files
@@ -396,6 +406,7 @@ function check_no_system_python() {
 }
 
 function install_debian_runtime_dependencies() {
+    keep_image_conffiles
     apt-get update
     apt-get install --no-install-recommends -yqq apt-utils >/dev/null 2>&1
     restore_debian_base_files
@@ -628,8 +639,7 @@ install_mariadb_client() {
     # Make sure that dependencies from MariaDB repo are preferred over Debian dependencies
     printf "Package: *\nPin: release o=MariaDB\nPin-Priority: 999\n" > /etc/apt/preferences.d/mariadb
     retry apt-get update
-    # Keep the hardened image's conffiles if a dependency upgrades base packages (see install_mssql.sh).
-    retry apt-get install --no-install-recommends -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold "${packages[@]}"
+    retry apt-get install --no-install-recommends -y "${packages[@]}"
     apt-get autoremove -yqq --purge
     apt-get clean && rm -rf /var/lib/apt/lists/*
 }
@@ -673,9 +683,7 @@ function install_mssql_client() {
     mkdir -p /opt/microsoft/msodbcsql18 &&
     touch /opt/microsoft/msodbcsql18/ACCEPT_EULA &&
     apt-get update -yqq &&
-    # The hardened base images ship a modified /etc/debian_version, so upgrading base-files stops at
-    # dpkg's interactive conffile prompt and fails the build; keep the image's copy instead.
-    apt-get upgrade -yqq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold &&
+    apt-get upgrade -yqq &&
     apt-get -yqq install --no-install-recommends "${packages[@]}" &&
     apt-get autoremove -yqq --purge &&
     apt-get clean &&
@@ -717,8 +725,7 @@ install_postgres_client() {
     echo "deb [arch=amd64,arm64] https://apt.postgresql.org/pub/repos/apt/ $(common::debian_codename)-pgdg main" > \
         /etc/apt/sources.list.d/pgdg.list
     apt-get update
-    # Keep the hardened image's conffiles if a dependency upgrades base packages (see install_mssql.sh).
-    apt-get install --no-install-recommends -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold "${packages[@]}"
+    apt-get install --no-install-recommends -y "${packages[@]}"
     apt-get autoremove -yqq --purge
     apt-get clean && rm -rf /var/lib/apt/lists/*
 }

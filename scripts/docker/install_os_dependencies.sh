@@ -167,6 +167,15 @@ function install_docker_cli() {
     apt-get install -y --no-install-recommends docker-ce-cli
 }
 
+function keep_image_conffiles() {
+    # The hardened base images ship a modified /etc/debian_version, so any apt run that upgrades
+    # base-files stops at dpkg's interactive conffile prompt and fails a non-interactive build. Making
+    # dpkg keep the image's copy by default covers every apt run - this build's and those of images
+    # extending it - so no install command has to remember the flags.
+    mkdir -p /etc/dpkg/dpkg.cfg.d
+    printf '%s\n' force-confdef force-confold > /etc/dpkg/dpkg.cfg.d/airflow-keep-conffiles
+}
+
 function restore_debian_base_files() {
     # The hardened base images ship a minimal /etc, but Debian maintainer scripts assume the files
     # a stock Debian has: sasl2-bin chowns its run directory to the "sasl" group from base-passwd,
@@ -189,6 +198,7 @@ function restore_debian_base_files() {
 }
 
 function install_debian_dev_dependencies() {
+    keep_image_conffiles
     apt-get update
     apt-get install -yqq --no-install-recommends apt-utils >/dev/null 2>&1
     restore_debian_base_files
@@ -311,6 +321,7 @@ function check_no_system_python() {
 }
 
 function install_debian_runtime_dependencies() {
+    keep_image_conffiles
     apt-get update
     apt-get install --no-install-recommends -yqq apt-utils >/dev/null 2>&1
     restore_debian_base_files

@@ -48,9 +48,7 @@ function install_mssql_client() {
     mkdir -p /opt/microsoft/msodbcsql18 &&
     touch /opt/microsoft/msodbcsql18/ACCEPT_EULA &&
     apt-get update -yqq &&
-    # The hardened base images ship a modified /etc/debian_version, so upgrading base-files stops at
-    # dpkg's interactive conffile prompt and fails the build; keep the image's copy instead.
-    apt-get upgrade -yqq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold &&
+    apt-get upgrade -yqq &&
     apt-get -yqq install --no-install-recommends "${packages[@]}" &&
     apt-get autoremove -yqq --purge &&
     apt-get clean &&

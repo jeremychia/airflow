@@ -922,9 +922,11 @@ previous images that can matter when you extend or run the image are:
   it installs need; a custom image that relied on something else being present has to install it.
 * **Some OS files are modified.** ``/etc/os-release`` identifies the system as "Docker Hardened Images
   (Debian)", and ``/etc/debian_version`` differs from the Debian package's copy, so an ``apt-get upgrade``
-  that touches ``base-files`` stops at ``dpkg``'s interactive configuration-file prompt. Pass
-  ``-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold`` (as the image's own install
-  scripts do) when you upgrade packages in a custom image.
+  that touches ``base-files`` would stop at ``dpkg``'s interactive configuration-file prompt. The image
+  ships ``/etc/dpkg/dpkg.cfg.d/airflow-keep-conffiles`` (``force-confdef`` and ``force-confold``), so
+  ``dpkg`` keeps the image's copy of a configuration file without asking - also in images that extend
+  it. A package upgrade therefore does not replace a configuration file that differs from the
+  package's version.
 * **The tags are rebuilt in place.** Docker republishes the same tags as CVEs are fixed, and Airflow
   refreshes its mirror weekly, so rebuilding an image from the same ``BASE_IMAGE`` tag can pick up a newer
   base. The weekly mirror also copies the newest Python patch release Docker publishes, and Airflow's

@@ -46,8 +46,7 @@ install_postgres_client() {
     echo "deb [arch=amd64,arm64] https://apt.postgresql.org/pub/repos/apt/ $(common::debian_codename)-pgdg main" > \
         /etc/apt/sources.list.d/pgdg.list
     apt-get update
-    # Keep the hardened image's conffiles if a dependency upgrades base packages (see install_mssql.sh).
-    apt-get install --no-install-recommends -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold "${packages[@]}"
+    apt-get install --no-install-recommends -y "${packages[@]}"
     apt-get autoremove -yqq --purge
     apt-get clean && rm -rf /var/lib/apt/lists/*
 }

@@ -943,7 +943,7 @@ Docker subscription, so they cannot be the default, but you can point the build 
 
 .. code-block:: bash
 
-    docker build . --build-arg BASE_IMAGE="dhi.io/python:3.13.15-debian12-fips-dev" --tag my-image:my-tag
+    docker build . --build-arg BASE_IMAGE="dhi.io/python:3.13.16-debian12-fips-dev" --tag my-image:my-tag
 
 .. note::
 

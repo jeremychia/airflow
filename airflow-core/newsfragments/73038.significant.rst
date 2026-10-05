@@ -19,4 +19,4 @@ an image that already provides Python.
 The ``PYTHON_LTO`` build argument is gone. It existed to disable Link-Time Optimization when compiling
 Python in FIPS mode, and there is no Python compilation left to configure. To build a FIPS-compliant image,
 point ``BASE_IMAGE`` at a FIPS variant of the hardened image instead, for example
-``dhi.io/python:3.13.15-debian12-fips-dev``.
+``dhi.io/python:3.13.16-debian12-fips-dev``.

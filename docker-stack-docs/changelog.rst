@@ -65,6 +65,10 @@ roughly 210s to 105s in a local cache-disabled build.
   image. This keeps the behaviour introduced in Airflow 3.1.4 (see below): the standard library is owned
   by root while the image runs as ``airflow``, so a missing bytecode cache could never be filled and every
   import would leak a negative ``dentry``.
+* Python in the hardened images is not the plain upstream build: Docker patches it (``pkgutil.get_data()``
+  rejects ``..`` resource paths), builds it without profile-guided optimization, and compiles it with a
+  1 MiB default thread stack. The image restores the previous 8 MiB thread stack. See
+  :ref:`image-hardened-base` for these and the other differences from the previous images.
 
 As with any base image change, some ``apt`` packages that used to be present as a side effect are not
 there any more. The hardened images are deliberately minimal - they ship no compiler, no ``curl``,

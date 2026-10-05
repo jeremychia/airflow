@@ -286,6 +286,19 @@ function link_python() {
     ldconfig
 }
 
+function restore_thread_stack_size() {
+    # The hardened base images build Python with -DTHREAD_STACK_SIZE=0x100000, so every thread Python
+    # starts gets a 1 MiB stack instead of glibc's default (the 8 MiB "ulimit -s" the previous images
+    # used). On Python 3.12 and 3.13 the C recursion guard is a fixed depth count sized for the larger
+    # stack, so deeply nested input - e.g. a JSON body parsed in a web server worker thread - overflows
+    # the stack and kills the process instead of raising RecursionError. A .pth file runs at every
+    # interpreter start-up without taking the sitecustomize module name users may already rely on.
+    local site_packages
+    site_packages="$(/usr/python/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
+    echo "Restoring the 8 MiB default thread stack size in ${site_packages}"
+    echo "import threading; threading.stack_size(8 * 1024 * 1024)" > "${site_packages}/airflow-thread-stack-size.pth"
+}
+
 function compile_python_stdlib() {
     # The hardened base images ship the standard library with no .pyc files at all. Python then misses
     # the bytecode cache on every stdlib import, and in a read-only or non-writable directory it cannot
@@ -343,6 +356,7 @@ function install_debian_runtime_dependencies() {
     apt-get clean
     check_no_system_python
     link_python
+    restore_thread_stack_size
     compile_python_stdlib
     rm -rf /var/lib/apt/lists/* /var/log/*
 }
@@ -445,6 +459,7 @@ else
     install_debian_dev_dependencies
     check_no_system_python
     link_python
+    restore_thread_stack_size
     compile_python_stdlib
     install_additional_dev_dependencies
     install_rustup

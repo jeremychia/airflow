@@ -26,8 +26,8 @@
 #
 # The FIPS-validated variants require a paid Docker subscription and cannot be mirrored or made the
 # default, but you can build a FIPS-compliant image by pointing the build at one:
-#   docker build . --build-arg BASE_IMAGE="dhi.io/python:3.13.15-debian12-fips-dev"
-ARG BASE_IMAGE="ghcr.io/apache/airflow/base/python:3.13.15-debian12-dev"
+#   docker build . --build-arg BASE_IMAGE="dhi.io/python:3.13.16-debian12-fips-dev"
+ARG BASE_IMAGE="ghcr.io/apache/airflow/base/python:3.13.16-debian12-dev"
 
 ##############################################################################################
 # This is the script image where we keep all inlined bash scripts needed in other segments
@@ -1724,7 +1724,7 @@ ENV DEV_APT_COMMAND=${DEV_APT_COMMAND} \
     ADDITIONAL_DEV_APT_COMMAND=${ADDITIONAL_DEV_APT_COMMAND}
 
 
-ARG AIRFLOW_PYTHON_VERSION="3.13.15"
+ARG AIRFLOW_PYTHON_VERSION="3.13.16"
 ENV AIRFLOW_PYTHON_VERSION=${AIRFLOW_PYTHON_VERSION}
 ENV GOLANG_MAJOR_MINOR_VERSION="1.27.1"
 ENV TEMURIN_VERSION="11"

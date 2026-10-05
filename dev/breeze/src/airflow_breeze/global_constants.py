@@ -902,11 +902,11 @@ PROVIDERS_COMPATIBILITY_TESTS_MATRIX: list[dict[str, str | list[str]]] = [
 ]
 
 ALL_PYTHON_VERSION_TO_PATCHLEVEL_VERSION: dict[str, str] = {
-    "3.10": "3.10.21",
-    "3.11": "3.11.16",
-    "3.12": "3.12.14",
-    "3.13": "3.13.15",
-    "3.14": "3.14.3",
+    "3.10": "3.10.22",
+    "3.11": "3.11.17",
+    "3.12": "3.12.15",
+    "3.13": "3.13.16",
+    "3.14": "3.14.8",
 }
 
 # Airflow images are based on Docker Hardened Images (https://dhi.io). The "-dev" variant carries

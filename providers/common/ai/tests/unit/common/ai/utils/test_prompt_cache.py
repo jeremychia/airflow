@@ -177,7 +177,9 @@ class TestPromptCachingOnTheAnthropicWire:
             """Look a key up."""
             return key
 
-        agent.run_sync(prompt)
+        # Without max_tokens, pydantic-ai sends the model's maximum output, which the Anthropic SDK
+        # only accepts as a streamed request; the mocked transport answers a plain message.
+        agent.run_sync(prompt, model_settings={"max_tokens": 1024})
         (body,) = bodies
         return body
 

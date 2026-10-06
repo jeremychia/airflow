@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import dataclasses
 from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, get_type_hints
 
 from pydantic_ai.usage import RunUsage
 
@@ -48,6 +48,9 @@ log = get_task_logger()
 USAGE_BUDGET_KEY = "__commonai_usage__"
 
 _RUN_USAGE_FIELDS = dataclasses.fields(RunUsage)
+# Count fields are ints, but pydantic-ai also declares float fields (``audio_seconds`` since
+# 2.52), so each field is checked against its declared type.
+_RUN_USAGE_FLOAT_FIELDS = frozenset(name for name, hint in get_type_hints(RunUsage).items() if hint is float)
 
 
 def dump_run_usage(usage: RunUsage) -> dict[str, Any]:
@@ -72,7 +75,8 @@ def load_run_usage(raw: Any, *, key: str) -> RunUsage:
     module still loads. Only the fields ``RunUsage`` currently declares are read.
 
     :raises ValueError: *raw* is not a dict, or a field has the wrong shape (``cost``
-        not a valid number, a count field not an int, ``details`` not a dict). The
+        not a valid number, a count field not an int, a float field not a number,
+        ``details`` not a dict). The
         message names *key* so the error points at which task state store key to
         delete to reset the budget.
     """
@@ -107,6 +111,13 @@ def load_run_usage(raw: Any, *, key: str) -> RunUsage:
             # loaded RunUsage silently mutate the raw dict this was read from (matters
             # most for copy_run_usage's dump/load round trip of a live RunUsage).
             kwargs["details"] = dict(value)
+        elif field.name in _RUN_USAGE_FLOAT_FIELDS:
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise ValueError(
+                    f"{key!r}[{field.name!r}] in the task state store is not a number (got {value!r}); "
+                    "delete the key to reset."
+                )
+            kwargs[field.name] = value
         else:
             if not isinstance(value, int) or isinstance(value, bool):
                 raise ValueError(

@@ -115,11 +115,32 @@ object Refs {
    *    rather than `lit(null)`.
    */
   @JvmStatic
-  @Suppress("UNCHECKED_CAST", "SpreadOperator")
+  @Suppress("SpreadOperator")
   fun <T> call(
     def: TaskDef,
     vararg args: Arg<*>?,
+  ): TaskRef<T> = call(def, emptyList(), *args)
+
+  /**
+   * Records a task called with named arguments, as a generated wiring view
+   * does. [names] is the task parameter each argument feeds, in the same
+   * order, and is what the serialized Dag carries as the task's binding spec.
+   *
+   * @return The handle representing this task, memoized by [TaskDef.id] so a result
+   *    held in a local and reused refers to one node.
+   * @throws IllegalArgumentException if an argument is a raw Java `null`
+   *    rather than `lit(null)`.
+   */
+  @JvmStatic
+  @Suppress("UNCHECKED_CAST", "SpreadOperator")
+  fun <T> call(
+    def: TaskDef,
+    names: List<String>,
+    vararg args: Arg<*>?,
   ): TaskRef<T> {
+    require(names.isEmpty() || names.size == args.size) {
+      "Task '${def.id}' was wired with ${args.size} argument(s) under ${names.size} name(s)"
+    }
     val inputs =
       args.mapIndexed { i, arg ->
         requireNotNull(arg) {
@@ -139,6 +160,7 @@ object Refs {
     }
     inputs.filterIsInstance<TaskRef<*>>().forEach { def.dependsOn(it.def) }
     def.inputs += inputs
+    def.inputNames += names
     val group = active.groupOf[def.id]
     if (group == null) {
       active.dag.addTask(def)
